@@ -7,4 +7,3 @@ Task 2 (Segmentation): A U-Net architecture was used with early stopping and ima
 
 Task 3 (Fetal Brain Segmentation): Attention U-Net with transfer learning and quantization for energy efficiency.\\
 
-Replace placeholders (X_train, y_train, etc.) with actual datasets and use appropriate hyperparameters depending on the dataset provided.
