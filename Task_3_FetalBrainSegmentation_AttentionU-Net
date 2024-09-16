@@ -1,0 +1,57 @@
+#Task 3: Fetal Brain Segmentation with Attention U-Net
+# Attention U-Net
+def attention_block(x, g, inter_channels):
+    theta_x = layers.Conv2D(inter_channels, (1, 1), padding='same')(x)
+    phi_g = layers.Conv2D(inter_channels, (1, 1), padding='same')(g)
+    f = layers.Activation('relu')(layers.add([theta_x, phi_g]))
+    psi_f = layers.Conv2D(1, (1, 1), padding='same', activation='sigmoid')(f)
+    return layers.multiply([x, psi_f])
+
+def build_attention_unet(input_shape):
+    inputs = layers.Input(input_shape)
+    
+    # Encoder
+    conv1 = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
+    conv1 = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(conv1)
+    pool1 = layers.MaxPooling2D(pool_size=(2, 2))(conv1)
+
+    conv2 = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(pool1)
+    conv2 = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(conv2)
+    pool2 = layers.MaxPooling2D(pool_size=(2, 2))(conv2)
+
+    # Bottleneck
+    conv3 = layers.Conv2D(256, (3, 3), activation='relu', padding='same')(pool2)
+    conv3 = layers.Conv2D(256, (3, 3), activation='relu', padding='same')(conv3)
+
+    # Decoder with attention
+    up1 = layers.Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv3)
+    att1 = attention_block(conv2, up1, 128)
+    up1 = layers.concatenate([up1, att1])
+    conv4 = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(up1)
+    conv4 = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(conv4)
+
+    up2 = layers.Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv4)
+    att2 = attention_block(conv1, up2, 64)
+    up2 = layers.concatenate([up2, att2])
+    conv5 = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(up2)
+    conv5 = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(conv5)
+
+    outputs = layers.Conv2D(1, (1, 1), activation='sigmoid')(conv5)
+
+    model = models.Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+# Example data
+input_shape = (128, 128, 1)
+attention_unet = build_attention_unet(input_shape)
+
+# Transfer learning: Load a pretrained model and fine-tune
+# Example:
+# attention_unet.load_weights('pretrained_model.h5')
+
+# Model quantization for energy efficiency during inference
+converter = tf.lite.TFLiteConverter.from_keras_model(attention_unet)
+tflite_model = converter.convert()
+with open('attention_unet_quantized.tflite', 'wb') as f:
+    f.write(tflite_model)
